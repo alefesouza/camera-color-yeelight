@@ -24,4 +24,9 @@
         android:id="@+id/max_frame"
         app:showAsAction="never">
     </item>
+    <item
+        android:title="Configure Crop"
+        android:id="@+id/configure_crop"
+        app:showAsAction="never">
+    </item>
 </menu>

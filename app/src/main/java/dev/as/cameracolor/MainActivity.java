@@ -1,51 +1,44 @@
 package dev.as.cameracolor;
 
 import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import androidx.annotation.WorkerThread;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.palette.graphics.Palette;
+import androidx.core.app.ActivityCompat;
 
+import android.Manifest;
 import android.content.DialogInterface;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Color;
-import android.graphics.ColorFilter;
 import android.graphics.ImageFormat;
 import android.graphics.Rect;
 import android.graphics.YuvImage;
 import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
-import android.os.Debug;
-import android.os.StrictMode;
+import android.os.Environment;
 import android.preference.PreferenceManager;
 import android.text.InputType;
-import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.WindowManager;
 import android.widget.EditText;
 import android.widget.ImageView;
-import android.widget.Toast;
 
-import com.otaliastudios.cameraview.BitmapCallback;
-import com.otaliastudios.cameraview.CameraListener;
 import com.otaliastudios.cameraview.CameraView;
-import com.otaliastudios.cameraview.PictureResult;
 import com.otaliastudios.cameraview.controls.Facing;
 import com.otaliastudios.cameraview.frame.Frame;
 import com.otaliastudios.cameraview.frame.FrameProcessor;
-import com.otaliastudios.cameraview.size.Size;
 
 import org.json.JSONArray;
-import org.json.JSONException;
 import org.json.JSONObject;
 
-import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 
 public class MainActivity extends AppCompatActivity {
@@ -56,7 +49,13 @@ public class MainActivity extends AppCompatActivity {
     int currentFrame = 0;
     int changeFrame = 15;
 
-    boolean isRunning;
+    int cropX = 0;
+    int cropY = 0;
+    int cropWidth = 0;
+    int cropHeight = 0;
+
+    boolean isRunning = false;
+    boolean configureCrop = false;
 
     public Menu optionsMenu;
 
@@ -74,6 +73,19 @@ public class MainActivity extends AppCompatActivity {
         String bulbIp = preferences.getString("bulbIp", null);
 
         changeFrame = preferences.getInt("changeFrame", 15);
+
+        ActivityCompat.requestPermissions(MainActivity.this,
+                new String[]{Manifest.permission.READ_EXTERNAL_STORAGE},
+                1);
+
+        ActivityCompat.requestPermissions(MainActivity.this,
+                new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE},
+                1);
+
+        cropX = preferences.getInt("cropX", 0);
+        cropY = preferences.getInt("cropY", 0);
+        cropWidth = preferences.getInt("cropWidth", 0);
+        cropHeight = preferences.getInt("cropHeight", 0);
 
         if (bulbIp != null) {
             this.init(bulbIp);
@@ -122,6 +134,9 @@ public class MainActivity extends AppCompatActivity {
                 return true;
             case R.id.change_bulb:
                 askBulbIp();
+                return true;
+            case R.id.configure_crop:
+                configureCrop = true;
                 return true;
             case R.id.max_frame:
                 AlertDialog.Builder builder = new AlertDialog.Builder(this);
@@ -203,8 +218,6 @@ public class MainActivity extends AppCompatActivity {
 
                 currentFrame = 0;
 
-                Bitmap bitmap = null;
-
                 if (frame.getDataClass() == byte[].class) {
                     ByteArrayOutputStream out = new ByteArrayOutputStream();
                     YuvImage yuvImage = new YuvImage(
@@ -220,9 +233,38 @@ public class MainActivity extends AppCompatActivity {
                             out
                     );
                     byte[] imageBytes = out.toByteArray();
-                    bitmap = BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.length);
+                    Bitmap bitmap = BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.length);
 
-                    int color = getDominantColor(bitmap);
+                    int color = 0;
+
+                    ImageView imageView = findViewById(R.id.image);
+
+                    if (cropWidth > 0) {
+                        Bitmap resizedBitmap = Bitmap.createBitmap(bitmap, cropX, cropY, cropWidth, cropHeight);
+                        imageView.setImageBitmap(resizedBitmap);
+
+                        color = getDominantColor(resizedBitmap);
+                    } else {
+                        imageView.setImageBitmap(bitmap);
+
+                        color = getDominantColor(bitmap);
+                    }
+
+                    if (configureCrop) {
+                        configureCrop = false;
+
+                        String path = Environment.getExternalStorageDirectory().toString();
+                        File file = new File(path, "cameracolor_crop.jpg");
+
+                        try (FileOutputStream out2 = new FileOutputStream(file)) {
+                            bitmap.compress(Bitmap.CompressFormat.JPEG, 90, out2);
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+
+                        Intent intent = new Intent(MainActivity.this, CropActivity.class);
+                        startActivity(intent);
+                    }
 
 //                        Palette.from(bitmap).generate(new Palette.PaletteAsyncListener() {
 //                            @Override
@@ -237,9 +279,11 @@ public class MainActivity extends AppCompatActivity {
 //                            }
 //                        });
 
+                    final int c = color;
+
                     runOnUiThread(new Runnable() {
                         public void run() {
-                            setColor(color);
+                            setColor(c);
                         }
                     });
                 }
@@ -348,5 +392,15 @@ public class MainActivity extends AppCompatActivity {
                 e.printStackTrace();
             }
         }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+
+        cropX = preferences.getInt("cropX", 0);
+        cropY = preferences.getInt("cropY", 0);
+        cropWidth = preferences.getInt("cropWidth", 0);
+        cropHeight = preferences.getInt("cropHeight", 0);
     }
 }

@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".CropActivity">
+
+    <me.littlecheesecake.croplayout.EditPhotoView
+        android:id="@+id/editable_image"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:crop_corner_color="#45B4CA"
+        app:crop_line_color="#d7af55"
+        app:crop_dot_color="#333333"
+        app:crop_shadow_color="#77ffffff"/>
+
+    <Button
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:id="@+id/save"
+        android:text="Save"
+        android:layout_centerHorizontal="true">
+    </Button>
+
+</RelativeLayout>

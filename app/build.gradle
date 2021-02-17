@@ -40,4 +40,5 @@ dependencies {
     api 'com.otaliastudios:cameraview:2.7.0'
     implementation 'commons-net:commons-net:3.6'
     implementation 'commons-io:commons-io:2.6'
+    implementation 'me.littlecheesecake:croplayout:1.1.5'
 }
