@@ -21,12 +21,14 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.preference.PreferenceManager;
 import android.text.InputType;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.WindowManager;
 import android.widget.EditText;
 import android.widget.ImageView;
+import android.widget.Toast;
 
 import com.otaliastudios.cameraview.CameraView;
 import com.otaliastudios.cameraview.controls.Facing;
@@ -75,11 +77,7 @@ public class MainActivity extends AppCompatActivity {
         changeFrame = preferences.getInt("changeFrame", 15);
 
         ActivityCompat.requestPermissions(MainActivity.this,
-                new String[]{Manifest.permission.READ_EXTERNAL_STORAGE},
-                1);
-
-        ActivityCompat.requestPermissions(MainActivity.this,
-                new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE},
+                new String[]{Manifest.permission.READ_EXTERNAL_STORAGE, Manifest.permission.WRITE_EXTERNAL_STORAGE},
                 1);
 
         cropX = preferences.getInt("cropX", 0);
@@ -235,26 +233,16 @@ public class MainActivity extends AppCompatActivity {
                     byte[] imageBytes = out.toByteArray();
                     Bitmap bitmap = BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.length);
 
-                    int color = 0;
-
-                    ImageView imageView = findViewById(R.id.image);
-
-                    if (cropWidth > 0) {
-                        Bitmap resizedBitmap = Bitmap.createBitmap(bitmap, cropX, cropY, cropWidth, cropHeight);
-                        imageView.setImageBitmap(resizedBitmap);
-
-                        color = getDominantColor(resizedBitmap);
-                    } else {
-                        imageView.setImageBitmap(bitmap);
-
-                        color = getDominantColor(bitmap);
-                    }
-
                     if (configureCrop) {
+                        isRunning = false;
                         configureCrop = false;
 
                         String path = Environment.getExternalStorageDirectory().toString();
                         File file = new File(path, "cameracolor_crop.jpg");
+
+                        if (file.exists()) {
+                            file.delete();
+                        }
 
                         try (FileOutputStream out2 = new FileOutputStream(file)) {
                             bitmap.compress(Bitmap.CompressFormat.JPEG, 90, out2);
@@ -264,6 +252,21 @@ public class MainActivity extends AppCompatActivity {
 
                         Intent intent = new Intent(MainActivity.this, CropActivity.class);
                         startActivity(intent);
+                    }
+
+                    int color = 0;
+                    ImageView imageView = findViewById(R.id.image);
+
+                    if (cropWidth > 0) {
+                        Bitmap resizedBitmap = Bitmap.createBitmap(bitmap, cropX, cropY, cropWidth, cropHeight);
+
+                        imageView.setImageBitmap(resizedBitmap);
+
+                        color = getDominantColor(resizedBitmap);
+                    } else {
+                        imageView.setImageBitmap(bitmap);
+
+                        color = getDominantColor(bitmap);
                     }
 
 //                        Palette.from(bitmap).generate(new Palette.PaletteAsyncListener() {
@@ -395,6 +398,12 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @Override
+    protected void onStop() {
+        this.isRunning = false;
+        super.onStop();
+    }
+
+    @Override
     protected void onResume() {
         super.onResume();
 
@@ -402,5 +411,7 @@ public class MainActivity extends AppCompatActivity {
         cropY = preferences.getInt("cropY", 0);
         cropWidth = preferences.getInt("cropWidth", 0);
         cropHeight = preferences.getInt("cropHeight", 0);
+
+        this.init(preferences.getString("bulbIp", null));
     }
 }

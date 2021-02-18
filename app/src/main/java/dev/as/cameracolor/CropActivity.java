@@ -25,8 +25,8 @@ import me.littlecheesecake.croplayout.model.ScalableBox;
 public class CropActivity extends AppCompatActivity {
     private int cropX;
     private int cropY;
-    private int cropWidth;
-    private int cropHeight;
+    private int cropWidth = 640;
+    private int cropHeight = 880;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -43,7 +43,7 @@ public class CropActivity extends AppCompatActivity {
 
         final EditableImage image = new EditableImage(file.getAbsolutePath());
 
-        ScalableBox box1 = new ScalableBox(25,180,640,880);
+        ScalableBox box1 = new ScalableBox(0,0,640,880);
         List<ScalableBox> boxes = new ArrayList<>();
         boxes.add(box1);
         image.setBoxes(boxes);
@@ -54,10 +54,10 @@ public class CropActivity extends AppCompatActivity {
             public void onChanged(int x1, int y1, int x2, int y2) {
                 cropX = x1;
                 cropY = y1;
-                cropWidth = x2;
-                cropHeight = y2;
+                cropWidth = x2 - x1;
+                cropHeight = y2 - y1;
 
-                Toast.makeText(CropActivity.this, "box: [" + x1 + "," + y1 +"],[" + x2 + "," + y2 + "]", Toast.LENGTH_SHORT).show();
+                Toast.makeText(CropActivity.this, "box: [" + x1 + "," + y1 +"],[" + cropWidth + "," + cropHeight + "]", Toast.LENGTH_SHORT).show();
             }
         });
 
