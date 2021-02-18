@@ -1,6 +1,10 @@
 # Camera Color for Yeelight
 
-The objetive of this Android app is to simulate the Philips Hue Ambilight/Syncbox with Yeelight RGB bulbs, the app uses the device camera to determine the dominant color and change the Yeelight color with a telnet connection to its IP Address.
+<p align="center">
+  <img src="example.gif" alt="Example of this app working" />
+</p>
+
+The objetive of this Android app is to simulate the Philips Hue Ambilight/Sync Box with Yeelight RGB bulbs, the app uses the device camera to determine the dominant color and change the Yeelight color with a telnet connection to its IP Address.
 
 I recommend to buy a wall mount support for the phone and point the device camera to the television with this app on, it will determine the main color on the TV and send it to the Yeelight bulb IP address you put on the app.
 
