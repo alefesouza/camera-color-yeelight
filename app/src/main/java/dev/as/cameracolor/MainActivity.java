@@ -1,10 +1,12 @@
 package dev.as.cameracolor;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.annotation.WorkerThread;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
+import androidx.palette.graphics.Palette;
 
 import android.Manifest;
 import android.content.DialogInterface;
@@ -63,6 +65,7 @@ public class MainActivity extends AppCompatActivity {
     public Menu optionsMenu;
 
     Timer timer = null;
+    int colorVariant = 3;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -85,6 +88,8 @@ public class MainActivity extends AppCompatActivity {
         cropY = preferences.getInt("cropY", 0);
         cropWidth = preferences.getInt("cropWidth", 0);
         cropHeight = preferences.getInt("cropHeight", 0);
+
+        colorVariant = preferences.getInt("colorVariant", 3);
 
         camera = findViewById(R.id.camera);
 
@@ -144,39 +149,45 @@ public class MainActivity extends AppCompatActivity {
                         startActivity(intent);
                     }
 
-                    int color = 0;
                     ImageView imageView = findViewById(R.id.image);
 
                     if (cropWidth > 0) {
                         Bitmap resizedBitmap = Bitmap.createBitmap(bitmap, cropX, cropY, cropWidth, cropHeight);
 
-                        imageView.setImageBitmap(resizedBitmap);
-
-                        color = getDominantColor(resizedBitmap);
-                    } else {
-                        imageView.setImageBitmap(bitmap);
-
-                        color = getDominantColor(bitmap);
+                        bitmap = resizedBitmap;
                     }
 
-//                        Palette.from(bitmap).generate(new Palette.PaletteAsyncListener() {
-//                            @Override
-//                            public void onGenerated(@Nullable Palette palette) {
-//                                runOnUiThread(new Runnable() { public void run() {
-//                                    int color = getDominantColor(bitmap);
-//                                    Toast.makeText(MainActivity.this, Integer.toHexString(color), Toast.LENGTH_SHORT).show();
-//
-//                                    ColorDrawable cd = new ColorDrawable(Color.parseColor("#" + Integer.toHexString(color)));
-//                                    getSupportActionBar().setBackgroundDrawable(cd);
-//                                }});
-//                            }
-//                        });
+                    imageView.setImageBitmap(bitmap);;
 
-                    final int c = color;
+                    Palette.from(bitmap).generate(new Palette.PaletteAsyncListener() {
+                        @Override
+                        public void onGenerated(@Nullable Palette palette) {
+                            runOnUiThread(new Runnable() { public void run() {
+                                int color = 0;
 
-                    runOnUiThread(new Runnable() {
-                        public void run() {
-                            setColor(c);
+                                switch (colorVariant) {
+                                    case 0:
+                                        color = palette.getLightMutedColor(0);
+                                        break;
+                                    case 1:
+                                        color = palette.getLightVibrantColor(0);
+                                        break;
+                                    case 2:
+                                        color = palette.getMutedColor(0);
+                                        break;
+                                    case 3:
+                                        color = palette.getDominantColor(0);
+                                        break;
+                                    case 4:
+                                        color = palette.getDarkMutedColor(0);
+                                        break;
+                                    case 5:
+                                        color = palette.getDarkVibrantColor(0);
+                                        break;
+                                }
+
+                                setColor(color);
+                            }});
                         }
                     });
                 }
@@ -275,6 +286,27 @@ public class MainActivity extends AppCompatActivity {
                 });
 
                 builder.show();
+                return true;
+            case R.id.change_color_variant:
+                AlertDialog.Builder alertDialog = new AlertDialog.Builder(MainActivity.this);
+                alertDialog.setTitle("AlertDialog");
+                String[] items = {"Light Muted", "Light Vibrant", "Muted", "Dominant", "Dark Muted", "Dark Vibrant"};
+                int checkedItem = preferences.getInt("colorVariant", 3);
+                alertDialog.setSingleChoiceItems(items, checkedItem, new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        editor.putInt("colorVariant", which);
+                        editor.commit();
+
+                        colorVariant = which;
+                    }
+                });
+
+                alertDialog.setPositiveButton("OK", null);
+
+                AlertDialog alert = alertDialog.create();
+                alert.setCanceledOnTouchOutside(false);
+                alert.show();
                 return true;
         }
 
@@ -393,13 +425,6 @@ public class MainActivity extends AppCompatActivity {
         } catch (Exception e) {
             e.printStackTrace();
         }
-    }
-
-    public int getDominantColor(Bitmap bitmap) {
-        Bitmap newBitmap = Bitmap.createScaledBitmap(bitmap, 1, 1, true);
-        final int color = newBitmap.getPixel(0, 0);
-        newBitmap.recycle();
-        return color;
     }
 
     @Override

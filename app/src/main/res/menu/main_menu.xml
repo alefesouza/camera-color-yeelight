@@ -24,6 +24,11 @@
         app:showAsAction="never">
     </item>
     <item
+        android:title="Change color variant"
+        android:id="@+id/change_color_variant"
+        app:showAsAction="never">
+    </item>
+    <item
         android:title="Configure Crop"
         android:id="@+id/configure_crop"
         app:showAsAction="never">
