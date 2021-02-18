@@ -86,8 +86,6 @@ public class MainActivity extends AppCompatActivity {
         cropWidth = preferences.getInt("cropWidth", 0);
         cropHeight = preferences.getInt("cropHeight", 0);
 
-        setTimer();
-
         camera = findViewById(R.id.camera);
 
         camera.addFrameProcessor(new FrameProcessor() {
@@ -189,6 +187,8 @@ public class MainActivity extends AppCompatActivity {
 
         if (bulbIp != null) {
             this.init(bulbIp);
+
+            setTimer();
             return;
         }
 
@@ -203,7 +203,7 @@ public class MainActivity extends AppCompatActivity {
             public void run(){
                 allowChange = true;
             }
-        },0,60000 / preferences.getInt("connectionsPerMinute", 60));
+        },2000,60000 / preferences.getInt("connectionsPerMinute", 60));
     }
 
     @Override
@@ -301,6 +301,9 @@ public class MainActivity extends AppCompatActivity {
 
                 editor.putString("bulbIp", mText);
                 editor.commit();
+
+                init(mText);
+                setTimer();
             }
         });
 
