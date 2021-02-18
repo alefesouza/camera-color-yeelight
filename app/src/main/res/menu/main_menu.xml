@@ -16,12 +16,11 @@
     <item
         android:title="Change Bulb IP"
         android:id="@+id/change_bulb"
-        android:icon="@drawable/baseline_lightbulb_white_24"
-        app:showAsAction="always">
+        app:showAsAction="never">
     </item>
     <item
-        android:title="Change at Frame"
-        android:id="@+id/max_frame"
+        android:title="Change connections per minute"
+        android:id="@+id/connections_per_minute"
         app:showAsAction="never">
     </item>
     <item

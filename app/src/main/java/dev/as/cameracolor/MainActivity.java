@@ -42,14 +42,14 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.Timer;
+import java.util.TimerTask;
 
 public class MainActivity extends AppCompatActivity {
     TelnetClient connection = null;
     SharedPreferences preferences;
     SharedPreferences.Editor editor;
     CameraView camera = null;
-    int currentFrame = 0;
-    int changeFrame = 15;
 
     int cropX = 0;
     int cropY = 0;
@@ -58,8 +58,11 @@ public class MainActivity extends AppCompatActivity {
 
     boolean isRunning = false;
     boolean configureCrop = false;
+    boolean allowChange = false;
 
     public Menu optionsMenu;
+
+    Timer timer = null;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -74,8 +77,6 @@ public class MainActivity extends AppCompatActivity {
 
         String bulbIp = preferences.getString("bulbIp", null);
 
-        changeFrame = preferences.getInt("changeFrame", 15);
-
         ActivityCompat.requestPermissions(MainActivity.this,
                 new String[]{Manifest.permission.READ_EXTERNAL_STORAGE, Manifest.permission.WRITE_EXTERNAL_STORAGE},
                 1);
@@ -85,114 +86,7 @@ public class MainActivity extends AppCompatActivity {
         cropWidth = preferences.getInt("cropWidth", 0);
         cropHeight = preferences.getInt("cropHeight", 0);
 
-        if (bulbIp != null) {
-            this.init(bulbIp);
-            return;
-        }
-
-        askBulbIp();
-    }
-
-    @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
-        MenuInflater inflater = getMenuInflater();
-        inflater.inflate(R.menu.main_menu, menu);
-        this.optionsMenu = menu;
-        return super.onCreateOptionsMenu(menu);
-    }
-
-    @Override
-    public boolean onOptionsItemSelected(MenuItem item) {
-        switch (item.getItemId()) {
-            case R.id.play_pause:
-                currentFrame = 0;
-
-                if (isRunning) {
-                    item.setIcon(R.drawable.baseline_play_arrow_white_24);
-
-                    isRunning = false;
-                } else {
-                    item.setIcon(R.drawable.baseline_pause_white_24);
-
-                    String bulbIp = preferences.getString("bulbIp", null);
-
-                    this.init(bulbIp);
-                }
-
-                supportInvalidateOptionsMenu();
-                return true;
-            case R.id.change_camera:
-                if (camera != null) {
-                    if (camera.getFacing() == Facing.BACK) {
-                        camera.setFacing(Facing.FRONT);
-                    } else {
-                        camera.setFacing(Facing.BACK);
-                    }
-                }
-                return true;
-            case R.id.change_bulb:
-                askBulbIp();
-                return true;
-            case R.id.configure_crop:
-                configureCrop = true;
-                return true;
-            case R.id.max_frame:
-                AlertDialog.Builder builder = new AlertDialog.Builder(this);
-                builder.setTitle("How many camera frames to change the color.");
-
-                final EditText input = new EditText(this);
-                input.setInputType(InputType.TYPE_CLASS_NUMBER);
-                input.setSingleLine();
-
-                input.setText(String.valueOf(preferences.getInt("changeFrame", 15)));
-
-                builder.setView(input);
-
-                builder.setPositiveButton("OK", new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface dialog, int which) {
-                        Integer mText = Integer.parseInt(input.getText().toString());
-
-                        editor.putInt("changeFrame", mText);
-                        editor.commit();
-                    }
-                });
-
-                builder.show();
-                return true;
-        }
-
-        return super.onOptionsItemSelected(item);
-    }
-
-    public void askBulbIp() {
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle("Type the Bulb IP");
-
-        final EditText input = new EditText(this);
-        input.setSingleLine();
-
-        if (preferences.contains("bulbIp")) {
-            input.setText(preferences.getString("bulbIp", null));
-        }
-
-        builder.setView(input);
-
-        builder.setPositiveButton("OK", new DialogInterface.OnClickListener() {
-            @Override
-            public void onClick(DialogInterface dialog, int which) {
-                String mText = input.getText().toString();
-
-                editor.putString("bulbIp", mText);
-                editor.commit();
-            }
-        });
-
-        builder.show();
-    }
-
-    public void init(String bulbIp) {
-        isRunning = true;
+        setTimer();
 
         camera = findViewById(R.id.camera);
 
@@ -204,17 +98,15 @@ public class MainActivity extends AppCompatActivity {
                     return;
                 }
 
-                currentFrame++;
-
-                if (currentFrame < changeFrame) {
+                if (!allowChange) {
                     return;
                 }
+
+                allowChange = false;
 
                 if (optionsMenu != null) {
                     optionsMenu.findItem(R.id.play_pause).setIcon(R.drawable.baseline_pause_white_24);
                 }
-
-                currentFrame = 0;
 
                 if (frame.getDataClass() == byte[].class) {
                     ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -294,6 +186,129 @@ public class MainActivity extends AppCompatActivity {
         });
 
         camera.setLifecycleOwner(this);
+
+        if (bulbIp != null) {
+            this.init(bulbIp);
+            return;
+        }
+
+        askBulbIp();
+    }
+
+    private void setTimer() {
+        timer = new Timer();
+
+        timer.scheduleAtFixedRate(new TimerTask(){
+            @Override
+            public void run(){
+                allowChange = true;
+            }
+        },0,60000 / preferences.getInt("connectionsPerMinute", 60));
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        MenuInflater inflater = getMenuInflater();
+        inflater.inflate(R.menu.main_menu, menu);
+        this.optionsMenu = menu;
+        return super.onCreateOptionsMenu(menu);
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        switch (item.getItemId()) {
+            case R.id.play_pause:
+                if (isRunning) {
+                    item.setIcon(R.drawable.baseline_play_arrow_white_24);
+
+                    isRunning = false;
+                } else {
+                    item.setIcon(R.drawable.baseline_pause_white_24);
+
+                    String bulbIp = preferences.getString("bulbIp", null);
+
+                    this.init(bulbIp);
+                }
+
+                supportInvalidateOptionsMenu();
+                return true;
+            case R.id.change_camera:
+                if (camera != null) {
+                    if (camera.getFacing() == Facing.BACK) {
+                        camera.setFacing(Facing.FRONT);
+                    } else {
+                        camera.setFacing(Facing.BACK);
+                    }
+                }
+                return true;
+            case R.id.change_bulb:
+                askBulbIp();
+                return true;
+            case R.id.configure_crop:
+                configureCrop = true;
+                return true;
+            case R.id.connections_per_minute:
+                AlertDialog.Builder builder = new AlertDialog.Builder(this);
+                builder.setTitle("How many connection per minute (60 = recommended).");
+
+                final EditText input = new EditText(this);
+                input.setInputType(InputType.TYPE_CLASS_NUMBER);
+                input.setSingleLine();
+
+                input.setText(String.valueOf(preferences.getInt("connectionsPerMinute", 60)));
+
+                builder.setView(input);
+
+                builder.setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        Integer mText = Integer.parseInt(input.getText().toString());
+
+                        editor.putInt("connectionsPerMinute", mText);
+                        editor.commit();
+
+                        timer.cancel();
+                        timer.purge();
+
+                        setTimer();
+                    }
+                });
+
+                builder.show();
+                return true;
+        }
+
+        return super.onOptionsItemSelected(item);
+    }
+
+    public void askBulbIp() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Type the Bulb IP");
+
+        final EditText input = new EditText(this);
+        input.setSingleLine();
+
+        if (preferences.contains("bulbIp")) {
+            input.setText(preferences.getString("bulbIp", null));
+        }
+
+        builder.setView(input);
+
+        builder.setPositiveButton("OK", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                String mText = input.getText().toString();
+
+                editor.putString("bulbIp", mText);
+                editor.commit();
+            }
+        });
+
+        builder.show();
+    }
+
+    public void init(String bulbIp) {
+        isRunning = true;
 
         Thread thread = new Thread(new Runnable() {
             @Override
