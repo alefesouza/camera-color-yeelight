@@ -28,6 +28,8 @@ public class CropActivity extends AppCompatActivity {
     private int cropWidth = 640;
     private int cropHeight = 880;
 
+    private String selectedIp = "";
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -43,7 +45,16 @@ public class CropActivity extends AppCompatActivity {
 
         final EditableImage image = new EditableImage(file.getAbsolutePath());
 
-        ScalableBox box1 = new ScalableBox(0,0,640,880);
+        final SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(CropActivity.this);
+
+        selectedIp = getIntent().getStringExtra("selectedIp");
+
+        cropX = preferences.getInt(selectedIp + "-cropX", 0);
+        cropY = preferences.getInt(selectedIp + "-cropY", 0);
+        cropWidth = preferences.getInt(selectedIp + "-cropWidth", 640);
+        cropHeight = preferences.getInt(selectedIp + "-cropHeight", 880);
+
+        ScalableBox box1 = new ScalableBox(cropX, cropY,cropWidth + cropX,cropHeight + cropY);
         List<ScalableBox> boxes = new ArrayList<>();
         boxes.add(box1);
         image.setBoxes(boxes);
@@ -65,13 +76,12 @@ public class CropActivity extends AppCompatActivity {
         button.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(CropActivity.this);
                 SharedPreferences.Editor editor = preferences.edit();
 
-                editor.putInt("cropX", cropX);
-                editor.putInt("cropY", cropY);
-                editor.putInt("cropHeight", cropHeight);
-                editor.putInt("cropWidth", cropWidth);
+                editor.putInt(selectedIp + "-cropX", cropX);
+                editor.putInt(selectedIp + "-cropY", cropY);
+                editor.putInt(selectedIp + "-cropHeight", cropHeight);
+                editor.putInt(selectedIp + "-cropWidth", cropWidth);
 
                 editor.commit();
 

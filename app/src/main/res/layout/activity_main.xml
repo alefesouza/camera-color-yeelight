@@ -14,7 +14,7 @@
         android:id="@+id/camera"
         app:cameraAudio="off"
         app:cameraMode="picture"
-        app:cameraFacing="front"
+        app:cameraFacing="back"
         app:cameraAutoFocusMarker="@string/cameraview_default_autofocus_marker"
         app:cameraUseDeviceOrientation="true"
         app:cameraPictureFormat="jpeg"

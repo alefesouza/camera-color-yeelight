@@ -21,6 +21,7 @@ import android.graphics.YuvImage;
 import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
 import android.os.Environment;
+import android.os.Handler;
 import android.preference.PreferenceManager;
 import android.text.InputType;
 import android.util.Log;
@@ -28,6 +29,7 @@ import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.WindowManager;
+import android.widget.ArrayAdapter;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.Toast;
@@ -44,19 +46,16 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
 
 public class MainActivity extends AppCompatActivity {
-    TelnetClient connection = null;
+    List<TelnetClient> connections = new ArrayList<>();
     SharedPreferences preferences;
     SharedPreferences.Editor editor;
     CameraView camera = null;
-
-    int cropX = 0;
-    int cropY = 0;
-    int cropWidth = 0;
-    int cropHeight = 0;
 
     boolean isRunning = false;
     boolean configureCrop = false;
@@ -66,6 +65,9 @@ public class MainActivity extends AppCompatActivity {
 
     Timer timer = null;
     int colorVariant = 3;
+
+    String selectedIp = "";
+    String[] bulbIps = new String[]{};
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -78,16 +80,15 @@ public class MainActivity extends AppCompatActivity {
         preferences = PreferenceManager.getDefaultSharedPreferences(this);
         editor = preferences.edit();
 
-        String bulbIp = preferences.getString("bulbIp", null);
+        bulbIps = preferences.getString("bulbIps", "").split(",");
+
+        if (bulbIps[0].isEmpty()) {
+            bulbIps = new String[]{};
+        }
 
         ActivityCompat.requestPermissions(MainActivity.this,
                 new String[]{Manifest.permission.READ_EXTERNAL_STORAGE, Manifest.permission.WRITE_EXTERNAL_STORAGE},
                 1);
-
-        cropX = preferences.getInt("cropX", 0);
-        cropY = preferences.getInt("cropY", 0);
-        cropWidth = preferences.getInt("cropWidth", 0);
-        cropHeight = preferences.getInt("cropHeight", 0);
 
         colorVariant = preferences.getInt("colorVariant", 3);
 
@@ -146,64 +147,91 @@ public class MainActivity extends AppCompatActivity {
                         }
 
                         Intent intent = new Intent(MainActivity.this, CropActivity.class);
+                        intent.putExtra("selectedIp", selectedIp);
                         startActivity(intent);
                     }
 
-                    ImageView imageView = findViewById(R.id.image);
+                    int index = 0;
 
-                    if (cropWidth > 0) {
-                        Bitmap resizedBitmap = Bitmap.createBitmap(bitmap, cropX, cropY, cropWidth, cropHeight);
+                    for (String bulbIp : bulbIps) {
+                        calcBulbColorForIp(bulbIp, bitmap, index);
 
-                        bitmap = resizedBitmap;
+                        index++;
                     }
-
-                    imageView.setImageBitmap(bitmap);;
-
-                    Palette.from(bitmap).generate(new Palette.PaletteAsyncListener() {
-                        @Override
-                        public void onGenerated(@Nullable Palette palette) {
-                            runOnUiThread(new Runnable() { public void run() {
-                                int color = 0;
-
-                                switch (colorVariant) {
-                                    case 0:
-                                        color = palette.getLightMutedColor(0);
-                                        break;
-                                    case 1:
-                                        color = palette.getLightVibrantColor(0);
-                                        break;
-                                    case 2:
-                                        color = palette.getMutedColor(0);
-                                        break;
-                                    case 3:
-                                        color = palette.getDominantColor(0);
-                                        break;
-                                    case 4:
-                                        color = palette.getDarkMutedColor(0);
-                                        break;
-                                    case 5:
-                                        color = palette.getDarkVibrantColor(0);
-                                        break;
-                                }
-
-                                setColor(color);
-                            }});
-                        }
-                    });
                 }
             }
         });
 
         camera.setLifecycleOwner(this);
 
-        if (bulbIp != null) {
-            this.init(bulbIp);
+        if (bulbIps.length > 0) {
+            this.init();
 
             setTimer();
             return;
         }
 
         askBulbIp();
+    }
+
+    private void calcBulbColorForIp(String bulbIp, Bitmap bitmap, int index) {
+        if (index >= connections.size()) {
+            return;
+        }
+
+        int cropWidth = preferences.getInt(bulbIp + "-cropWidth", 0);
+
+        if (cropWidth > 0) {
+            int cropX = preferences.getInt(bulbIp + "-cropX", 0);
+            int cropY = preferences.getInt(bulbIp + "-cropY", 0);
+            int cropHeight = preferences.getInt(bulbIp + "-cropHeight", 0);
+
+            Bitmap resizedBitmap = Bitmap.createBitmap(bitmap, cropX, cropY, cropWidth, cropHeight);
+
+            bitmap = resizedBitmap;
+        }
+
+        if (index == 0) {
+            ImageView imageView = findViewById(R.id.image);
+            imageView.setImageBitmap(bitmap);
+        }
+
+        if (colorVariant == 6) {
+            setColor(getDominantColor(bitmap), connections.get(index), index);
+            return;
+        }
+
+        Palette.from(bitmap).generate(new Palette.PaletteAsyncListener() {
+            @Override
+            public void onGenerated(@Nullable Palette palette) {
+                runOnUiThread(new Runnable() { public void run() {
+                    int color = 0;
+
+                    switch (colorVariant) {
+                        case 0:
+                            color = palette.getLightMutedColor(0);
+                            break;
+                        case 1:
+                            color = palette.getLightVibrantColor(0);
+                            break;
+                        case 2:
+                            color = palette.getMutedColor(0);
+                            break;
+                        case 3:
+                            color = palette.getDominantColor(0);
+                            break;
+                        case 4:
+                            color = palette.getDarkMutedColor(0);
+                            break;
+                        case 5:
+                            color = palette.getDarkVibrantColor(0);
+                            break;
+                    }
+
+                    setColor(color, connections.get(index), index);
+                }});
+            }
+        });
     }
 
     private void setTimer() {
@@ -232,13 +260,12 @@ public class MainActivity extends AppCompatActivity {
                 if (isRunning) {
                     item.setIcon(R.drawable.baseline_play_arrow_white_24);
 
+                    closeConnections();
                     isRunning = false;
                 } else {
                     item.setIcon(R.drawable.baseline_pause_white_24);
 
-                    String bulbIp = preferences.getString("bulbIp", null);
-
-                    this.init(bulbIp);
+                    this.init();
                 }
 
                 supportInvalidateOptionsMenu();
@@ -256,11 +283,59 @@ public class MainActivity extends AppCompatActivity {
                 askBulbIp();
                 return true;
             case R.id.configure_crop:
-                configureCrop = true;
+                if (bulbIps.length == 0) {
+                    Toast.makeText(MainActivity.this, "Please register a Yeelight Bulb IP", Toast.LENGTH_SHORT).show();
+                    return true;
+                }
+
+                if (bulbIps.length == 1) {
+                    selectedIp = bulbIps[0];
+
+                    new Handler().postDelayed(new Runnable() {
+                        public void run() {
+                            configureCrop = true;
+                        }
+                    }, 3000);
+
+                    Toast.makeText(MainActivity.this, "3 seconds to position phone...", Toast.LENGTH_SHORT).show();
+                    return true;
+                }
+
+                AlertDialog.Builder builderSingle = new AlertDialog.Builder(MainActivity.this);
+                builderSingle.setTitle("Select Bulb IP:");
+
+                final ArrayAdapter<String> arrayAdapter = new ArrayAdapter<String>(MainActivity.this, android.R.layout.select_dialog_singlechoice);
+
+                for (String bulbIp : bulbIps) {
+                    arrayAdapter.add(bulbIp.trim());
+                }
+
+                builderSingle.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        dialog.dismiss();
+                    }
+                });
+
+                builderSingle.setAdapter(arrayAdapter, new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        selectedIp = arrayAdapter.getItem(which);
+
+                        new Handler().postDelayed(new Runnable() {
+                            public void run() {
+                                configureCrop = true;
+                            }
+                        }, 3000);
+
+                        Toast.makeText(MainActivity.this, "3 seconds to position phone...", Toast.LENGTH_SHORT).show();
+                    }
+                });
+                builderSingle.show();
                 return true;
             case R.id.connections_per_minute:
                 AlertDialog.Builder builder = new AlertDialog.Builder(this);
-                builder.setTitle("How many connection per minute (60 = recommended).");
+                builder.setTitle("How many connections per minute (60 = recommended).");
 
                 final EditText input = new EditText(this);
                 input.setInputType(InputType.TYPE_CLASS_NUMBER);
@@ -290,7 +365,7 @@ public class MainActivity extends AppCompatActivity {
             case R.id.change_color_variant:
                 AlertDialog.Builder alertDialog = new AlertDialog.Builder(MainActivity.this);
                 alertDialog.setTitle("AlertDialog");
-                String[] items = {"Light Muted", "Light Vibrant", "Muted", "Dominant", "Dark Muted", "Dark Vibrant"};
+                String[] items = {"Light Muted", "Light Vibrant", "Muted", "Dominant", "Dark Muted", "Dark Vibrant", "Legacy"};
                 int checkedItem = preferences.getInt("colorVariant", 3);
                 alertDialog.setSingleChoiceItems(items, checkedItem, new DialogInterface.OnClickListener() {
                     @Override
@@ -315,13 +390,13 @@ public class MainActivity extends AppCompatActivity {
 
     public void askBulbIp() {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle("Type the Bulb IP");
+        builder.setTitle("Type the Bulb IPs separated by comma");
 
         final EditText input = new EditText(this);
         input.setSingleLine();
 
-        if (preferences.contains("bulbIp")) {
-            input.setText(preferences.getString("bulbIp", null));
+        if (preferences.contains("bulbIps")) {
+            input.setText(preferences.getString("bulbIps", ""));
         }
 
         builder.setView(input);
@@ -331,10 +406,16 @@ public class MainActivity extends AppCompatActivity {
             public void onClick(DialogInterface dialog, int which) {
                 String mText = input.getText().toString();
 
-                editor.putString("bulbIp", mText);
+                editor.putString("bulbIps", mText);
                 editor.commit();
 
-                init(mText);
+                bulbIps = mText.split(",");
+
+                if (bulbIps[0].isEmpty()) {
+                    bulbIps = new String[]{};
+                }
+
+                init();
                 setTimer();
             }
         });
@@ -342,15 +423,28 @@ public class MainActivity extends AppCompatActivity {
         builder.show();
     }
 
-    public void init(String bulbIp) {
-        isRunning = true;
+    public void init() {
+        if (bulbIps.length == 0) {
+            Toast.makeText(MainActivity.this, "Please register a Yeelight Bulb IP", Toast.LENGTH_SHORT).show();
+            return;
+        }
 
+        closeConnections();
+
+        for (String bulbIp : bulbIps) {
+            this.startTelnet(bulbIp.trim());
+        }
+
+        isRunning = true;
+    }
+
+    public void startTelnet(String bulbIp) {
         Thread thread = new Thread(new Runnable() {
             @Override
             public void run() {
                 try  {
                     try {
-                        connection = new TelnetClient(bulbIp, 55443);
+                        TelnetClient connection = new TelnetClient(bulbIp, 55443);
 
                         JSONObject onJsonObject = new JSONObject();
                         JSONArray onArray = new JSONArray();
@@ -377,6 +471,8 @@ public class MainActivity extends AppCompatActivity {
                         jsonObject.put("params", array);
 
                         connection.sendCommand(jsonObject.toString());
+
+                        connections.add(connection);
                     } catch (IOException e) {
                         e.printStackTrace();
                     }
@@ -389,11 +485,13 @@ public class MainActivity extends AppCompatActivity {
         thread.start();
     }
 
-    public void setColor(int color) {
+    public void setColor(int color, TelnetClient connection, int index) {
         String hexColor = String.format("%06X", (0xFFFFFF & color));
 
-        ColorDrawable cd = new ColorDrawable(Color.parseColor("#" + hexColor));
-        getSupportActionBar().setBackgroundDrawable(cd);
+        if (index == 0) {
+            ColorDrawable cd = new ColorDrawable(Color.parseColor("#" + hexColor));
+            getSupportActionBar().setBackgroundDrawable(cd);
+        }
 
         if (connection == null) {
             return;
@@ -431,30 +529,48 @@ public class MainActivity extends AppCompatActivity {
     protected void onDestroy() {
         super.onDestroy();
 
-        if (connection != null) {
-            try {
+        this.closeConnections();
+    }
+
+    private void closeConnections() {
+        try {
+            for (TelnetClient connection : connections) {
                 connection.close();
-            } catch (IOException e) {
-                e.printStackTrace();
             }
+
+            connections.clear();
+        } catch (IOException e) {
+            e.printStackTrace();
         }
     }
 
     @Override
     protected void onStop() {
         this.isRunning = false;
+
+        closeConnections();
+
+        if (optionsMenu != null) {
+            optionsMenu.findItem(R.id.play_pause).setIcon(R.drawable.baseline_play_arrow_white_24);
+            invalidateOptionsMenu();
+        }
+
         super.onStop();
+    }
+
+    public int getDominantColor(Bitmap bitmap) {
+        Bitmap newBitmap = Bitmap.createScaledBitmap(bitmap, 1, 1, true);
+        final int color = newBitmap.getPixel(0, 0);
+        newBitmap.recycle();
+        return color;
     }
 
     @Override
     protected void onResume() {
         super.onResume();
 
-        cropX = preferences.getInt("cropX", 0);
-        cropY = preferences.getInt("cropY", 0);
-        cropWidth = preferences.getInt("cropWidth", 0);
-        cropHeight = preferences.getInt("cropHeight", 0);
-
-        this.init(preferences.getString("bulbIp", null));
+        if (bulbIps.length > 0) {
+            this.init();
+        }
     }
 }
