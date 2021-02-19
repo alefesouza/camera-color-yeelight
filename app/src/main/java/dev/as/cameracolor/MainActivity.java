@@ -69,6 +69,8 @@ public class MainActivity extends AppCompatActivity {
     String selectedIp = "";
     String[] bulbIps = new String[]{};
 
+    float colorFactor = 1.0f;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -91,6 +93,7 @@ public class MainActivity extends AppCompatActivity {
                 1);
 
         colorVariant = preferences.getInt("colorVariant", 3);
+        colorFactor = preferences.getFloat("colorFactor", 1.0f);
 
         camera = findViewById(R.id.camera);
 
@@ -335,7 +338,8 @@ public class MainActivity extends AppCompatActivity {
                 return true;
             case R.id.connections_per_minute:
                 AlertDialog.Builder builder = new AlertDialog.Builder(this);
-                builder.setTitle("How many connections per minute (60 = recommended).");
+                builder.setTitle("How many connections per minute.");
+                builder.setMessage("60 = recommended");
 
                 final EditText input = new EditText(this);
                 input.setInputType(InputType.TYPE_CLASS_NUMBER);
@@ -361,6 +365,33 @@ public class MainActivity extends AppCompatActivity {
                 });
 
                 builder.show();
+                return true;
+            case R.id.change_color_dark_factor:
+                AlertDialog.Builder builder2 = new AlertDialog.Builder(this);
+                builder2.setTitle("Auto change to a darker or lighter color.");
+                builder2.setMessage("0.8 = 20% darker");
+
+                final EditText input2 = new EditText(this);
+                input2.setInputType(InputType.TYPE_NUMBER_FLAG_DECIMAL);
+                input2.setSingleLine();
+
+                input2.setText(String.valueOf(preferences.getFloat("colorFactor", 1.0f)));
+
+                builder2.setView(input2);
+
+                builder2.setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        Float mText = Float.parseFloat(input2.getText().toString());
+
+                        editor.putFloat("colorFactor", mText);
+                        editor.commit();
+
+                        colorFactor = mText;
+                    }
+                });
+
+                builder2.show();
                 return true;
             case R.id.change_color_variant:
                 AlertDialog.Builder alertDialog = new AlertDialog.Builder(MainActivity.this);
@@ -486,7 +517,13 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void setColor(int color, TelnetClient connection, int index) {
-        String hexColor = String.format("%06X", (0xFFFFFF & color));
+        int theColor = color;
+
+        if (colorVariant != 1.0f) {
+            theColor = manipulateColor(color, colorFactor);
+        }
+
+        String hexColor = String.format("%06X", (0xFFFFFF & theColor));
 
         if (index == 0) {
             ColorDrawable cd = new ColorDrawable(Color.parseColor("#" + hexColor));
@@ -563,6 +600,13 @@ public class MainActivity extends AppCompatActivity {
         final int color = newBitmap.getPixel(0, 0);
         newBitmap.recycle();
         return color;
+    }
+
+    private int manipulateColor(int color, float factor) {
+        float[] hsv = new float[3];
+        Color.colorToHSV(color, hsv);
+        hsv[2] *= factor;
+        return Color.HSVToColor(hsv);
     }
 
     @Override

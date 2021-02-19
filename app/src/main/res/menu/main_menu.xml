@@ -29,6 +29,11 @@
         app:showAsAction="never">
     </item>
     <item
+        android:title="Change dark factor"
+        android:id="@+id/change_color_dark_factor"
+        app:showAsAction="never">
+    </item>
+    <item
         android:title="Configure Crop"
         android:id="@+id/configure_crop"
         app:showAsAction="never">
